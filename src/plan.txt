@@ -1,19 +1,23 @@
 1) Ucitati neku teksturu da bude u polozaju kao mapa middle earth-a u onom projektu
 
-2) Ucitati neki mali model (za sada bez osvetljenja. Osvetljenje ce doci na red kada budem pravio kocku koja je light source)
+2) Uvesti kameru da moze da se krece
 
-3) Napraviti kocku koja se krece tu pored modela
+- Uraditi da moze misem da se pomera pogled
 
-4) Napraviti kocku koja je izvor svetlosti
+- Ucitati neki mali model (za sada bez osvetljenja. Osvetljenje ce doci na red kada budem pravio kocku koja je light source)
 
-5) Proveriti sta treba od oblasti jos da se implementira
+- Napraviti kocku koja se krece tu pored modela
 
-5.1) Implementiraj <ime_oblasti_1>
+- Napraviti kocku koja je izvor svetlosti
 
-5.2) Implementiraj <ime_oblasti_2>
+6) Proveriti sta treba od oblasti jos da se implementira
+
+6.1) Implementiraj <ime_oblasti_1>
+
+6.2) Implementiraj <ime_oblasti_2>
 
 ...
 
-6) Odgledaj one dodatne oblasti
+7) Odgledaj one dodatne oblasti
 
 7).... [DODATI NAKON STO ODGLEDAS DODATNE OBLASTI]

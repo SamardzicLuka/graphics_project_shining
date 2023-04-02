@@ -48,6 +48,8 @@ struct PointLight {
     float quadratic;
 };
 
+Camera kamerica;
+
 struct ProgramState {
     glm::vec3 clearColor = glm::vec3(0);
     bool ImGuiEnabled = false;
@@ -155,11 +157,15 @@ int main() {
 
     // configure global opengl state
     // -----------------------------
-//    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST); // DA NE VIDIMO U ISTO VREME I SPOLJA I IZNUTRA
 
     // build and compile shaders
     // -------------------------
     Shader notCubemapShader("resources/shaders/texture.vs", "resources/shaders/texture.fs");
+
+    kamerica.Position = glm::vec3(0.0f, 0.0f,  3.0f); // POZICIJA KAMERE
+    kamerica.Front = glm::vec3(0.0f, 0.0f, -1.0f); // VEKTOR GLEDANJA UNAPRED
+    kamerica.Up = glm::vec3(0.0f, 1.0f,  0.0f); // VEKTOR NA GORE
 
     // PRIPREMA
 
@@ -167,7 +173,7 @@ int main() {
 
         // DEFINISANJE VERTEXA KOJE CEMO KORISTITI KAO TEPIH
         float carpetVertices[] = {
-           // positions                                // normals                     // texture coords
+           // positions                    // texture coords
             0.5f,  0.5f,  0.0f, 1.0f,  1.0f,  // top right
             0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  // bottom right
             -0.5f, -0.5f,  0.0f, 0.0f,  0.0f,  // bottom left
@@ -222,17 +228,16 @@ int main() {
 //    pointLight.quadratic = 0.032f;
     } //LOADING MODELS- JOS NISAM STIGAO DO OVDE
 
-    // draw in wireframe
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    // PRAVIMO MATRICU PROJEKCIJE
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+    notCubemapShader.setMat4("projection", projection);
 
-    // render loop
-    // -----------
     while (!glfwWindowShouldClose(window)){
         // per-frame time logic
         // --------------------
-        //float currentFrame = glfwGetTime();
-        //deltaTime = currentFrame - lastFrame;
-        //lastFrame = currentFrame;
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
 
         // input
         // -----
@@ -253,16 +258,14 @@ int main() {
         notCubemapShader.use();
 
         glm::mat4 model         = glm::mat4(1.0f);
-        glm::mat4 view          = glm::mat4(1.0f);
-        glm::mat4 projection    = glm::mat4(1.0f);
+        glm::mat4 view          = glm::lookAt(kamerica.Position, kamerica.Position+kamerica.Front, kamerica.Up);
         model = glm::rotate(model, glm::radians(-55.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-        view  = glm::translate(view, glm::vec3(0.0f, 0.0f, -1.5f));
+//        view  = glm::translate(view, glm::vec3(0.0f, 0.0f, -1.5f));
 
         projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
         notCubemapShader.setMat4("model", model);
         notCubemapShader.setMat4("view", view);
-        notCubemapShader.setMat4("projection", projection);
 
         glBindVertexArray(carpetVAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
@@ -328,14 +331,27 @@ void processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
+    float cameraSpeed = deltaTime; //??????????
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        programState->camera.ProcessKeyboard(FORWARD, deltaTime*6);
+        kamerica.ProcessKeyboard(FORWARD, deltaTime); // POMERA SE KAMERA U KOM GLEDAMO
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        programState->camera.ProcessKeyboard(BACKWARD, deltaTime*6);
+        kamerica.ProcessKeyboard(BACKWARD, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        programState->camera.ProcessKeyboard(LEFT, deltaTime*6);
+        kamerica.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        programState->camera.ProcessKeyboard(RIGHT, deltaTime*6);
+        kamerica.ProcessKeyboard(RIGHT, deltaTime);
+    {
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+      //  programState->camera.ProcessKeyboard(FORWARD, deltaTime * 6);
+    //if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+      //  programState->camera.ProcessKeyboard(BACKWARD, deltaTime * 6);
+    ///if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+       /// programState->camera.ProcessKeyboard(LEFT, deltaTime * 6);
+    ///if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+       /// programState->camera.ProcessKeyboard(RIGHT, deltaTime * 6);
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+} // IMGUI
 }
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
