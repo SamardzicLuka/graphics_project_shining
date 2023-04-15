@@ -37,6 +37,8 @@ bool firstMouse = true;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+glm::vec3 lightPosition(1.5f, 1.6f, 2.8f);
+
 struct PointLight {
     glm::vec3 position;
     glm::vec3 ambient;
@@ -97,6 +99,7 @@ void ProgramState::LoadFromFile(std::string filename) {
 ProgramState *programState;
 
 void DrawImGui(ProgramState *programState);
+void moveLight(Camera_Movement smer);
 
 int main() {
     // glfw: initialize and configure
@@ -120,7 +123,7 @@ int main() {
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-//    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetCursorPosCallback(window, mouse_callback);
 //    glfwSetScrollCallback(window, scroll_callback);
 //    glfwSetKeyCallback(window, key_callback);
     // tell GLFW to capture our mouse
@@ -162,22 +165,23 @@ int main() {
     // build and compile shaders
     // -------------------------
     Shader notCubemapShader("resources/shaders/texture.vs", "resources/shaders/texture.fs");
+    Shader lightSourceShader("resources/shaders/source.vs", "resources/shaders/source.fs");
 
     kamerica.Position = glm::vec3(0.0f, 0.0f,  3.0f); // POZICIJA KAMERE
     kamerica.Front = glm::vec3(0.0f, 0.0f, -1.0f); // VEKTOR GLEDANJA UNAPRED
     kamerica.Up = glm::vec3(0.0f, 1.0f,  0.0f); // VEKTOR NA GORE
 
-    // PRIPREMA
+// PRIPREMA
 
     // POD
 
-        // DEFINISANJE VERTEXA KOJE CEMO KORISTITI KAO TEPIH
+    // DEFINISANJE VERTEXA KOJE CEMO KORISTITI KAO TEPIH
         float carpetVertices[] = {
-           // positions                    // texture coords
-            0.5f,  0.5f,  0.0f, 1.0f,  1.0f,  // top right
-            0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  // bottom right
-            -0.5f, -0.5f,  0.0f, 0.0f,  0.0f,  // bottom left
-            -0.5f,  0.5f,  0.0f,  0.0f,  1.0f   // top left
+           // positions                      // normals                        // texture coords
+            0.5f,  0.5f,  0.0f, 0.0f, 0.0f, -1.0f,1.0f,  1.0f,  // top right
+            0.5f, -0.5f,  0.0f, 0.0f, 0.0f, -1.0f,  1.0f,  0.0f,  // bottom right
+            -0.5f, -0.5f,  0.0f, 0.0f, 0.0f, -1.0f,0.0f,  0.0f,  // bottom left
+            -0.5f,  0.5f,  0.0f,  0.0f, 0.0f, -1.0f, 0.0f,  1.0f   // top left
         };
 
         // KORISTIMO ONAJ EBO KOJI SMO RADILI NA DRUGOM(?) CASU KADA SE PONAVLJAJU VERTICES
@@ -198,23 +202,104 @@ int main() {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, carpetEBO);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(carpetIndices), carpetIndices, GL_STATIC_DRAW);
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
 
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
 
-    // UCITAVANJE TEXTURA
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+
+
+    // KOCKA
+
+    float vertices[] = {
+            // positions          // normals           // texture coords
+            -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
+            0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  0.0f,
+            0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,
+            0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  1.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
+
+            -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  0.0f,
+            0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  0.0f,
+            0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
+            0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  0.0f,
+
+            -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
+            -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,
+            -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
+            -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
+            -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,
+            -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
+
+            0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
+            0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  1.0f,
+            0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
+            0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
+            0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  0.0f,
+            0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
+
+            -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,
+            0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  1.0f,
+            0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,
+            0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  0.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,
+
+            -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
+            0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,
+            0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,
+            0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  0.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f
+    };
+
+    unsigned int cubeVBO, cubeVAO;
+    glGenVertexArrays(1, &cubeVAO);
+    glGenBuffers(1, &cubeVBO);
+
+    glBindVertexArray(cubeVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), nullptr);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    // IZVOR SVETLOSTI
+
+    unsigned int lightSourceVAO;
+    glGenVertexArrays(1, &lightSourceVAO);
+    glBindVertexArray(lightSourceVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+// UCITAVANJE TEXTURA
 
     // POD
     unsigned int carpetTexture = loadTexture(FileSystem::getPath("resources/textures/carpet.jpg").c_str());
+    unsigned int carpetSpecularMap = loadTexture(FileSystem::getPath("resources/textures/specular_carpet.jpg").c_str());
 
-    notCubemapShader.use();
-    notCubemapShader.setInt("texture1", 0);
+    // KOCKA
 
-    // load models
-    // -----------
-    {//    Model ourModel("resources/objects/medieval book/TEST2.fbx");
+    unsigned int cubeTexture = loadTexture(FileSystem::getPath("resources/textures/awesomeface.png").c_str());
+    unsigned int cubeSpecularMap = loadTexture(FileSystem::getPath("resources/textures/specular_cube.jpg").c_str());
+
+    {
+        // load models
+        // -----------
+        {//    Model ourModel("resources/objects/medieval book/TEST2.fbx");
 //    ourModel.SetShaderTextureNamePrefix("material.");
 
 //    PointLight& pointLight = programState->pointLight;
@@ -226,7 +311,14 @@ int main() {
 //    pointLight.constant = 1.0f;
 //    pointLight.linear = 0.09f;
 //    pointLight.quadratic = 0.032f;
-    } //LOADING MODELS- JOS NISAM STIGAO DO OVDE
+        } //LOADING MODELS- JOS NISAM STIGAO DO OVDE
+    } // MODELI
+
+    notCubemapShader.use();
+    notCubemapShader.setInt("material.diffuse", 0);
+    notCubemapShader.setInt("material.specular", 1);
+    notCubemapShader.setFloat("material.shininess", 1.0f);
+
 
     // PRAVIMO MATRICU PROJEKCIJE
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
@@ -243,8 +335,6 @@ int main() {
         // -----
         processInput(window);
 
-        // render
-        // ------
         {///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //        glClearColor(programState->clearColor.r, programState->clearColor.g, programState->clearColor.b, 1.0f);
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -252,23 +342,91 @@ int main() {
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+
+        // INTITALIZE OUR SHADER
+        notCubemapShader.use();
+        notCubemapShader.setVec3("viewPos", kamerica.Position);
+
+        notCubemapShader.setVec3("dirLight.direction", 1.0f, -0.5f, 0.0f);
+        notCubemapShader.setVec3("dirLight.ambient", 0.01f, 0.01f, 0.01f);
+        notCubemapShader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
+        notCubemapShader.setVec3("dirLight.specular", 1.0f, 1.0f, 1.0f);
+
+        notCubemapShader.setVec3("pointLight.position", lightPosition);
+        notCubemapShader.setVec3("pointLight.ambient", 0.01f, 0.01f, 0.01f);
+        notCubemapShader.setVec3("pointLight.diffuse", 1.5f, 0.8f, 0.8f);
+        notCubemapShader.setVec3("pointLight.specular", 1.0f, 1.0f, 1.0f);
+        notCubemapShader.setFloat("pointLight.constant", 1.0f);
+        notCubemapShader.setFloat("pointLight.linear", 0.09f);
+        notCubemapShader.setFloat("pointLight.quadratic", 0.032f);
+
+        notCubemapShader.setVec3("spotLight.position", kamerica.Position);
+        notCubemapShader.setVec3("spotLight.direction", kamerica.Front);
+        notCubemapShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
+        notCubemapShader.setVec3("spotLight.diffuse", 0.7f, 0.7f, 0.7f);
+        notCubemapShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
+        notCubemapShader.setFloat("spotLight.constant", 1.0f);
+        notCubemapShader.setFloat("spotLight.linear", 0.05);
+        notCubemapShader.setFloat("spotLight.quadratic", 0.012);
+        notCubemapShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(10.5f)));
+        notCubemapShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(13.0f)));
+
+        glm::mat4 view          = glm::lookAt(kamerica.Position, kamerica.Position+kamerica.Front, kamerica.Up);
+        notCubemapShader.setMat4("view", view);
+
+
+// WORK ON OUR FLOOR
+// MODEL AND VIEW WE WILL USE TO RENDER FLOOR
+        glm::mat4  model(1.0);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, -0.51f, 0.0f));
+        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(10.0f));
+        notCubemapShader.setMat4("model", model);
+        notCubemapShader.setInt("texture1", 0);
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, carpetTexture);
 
-        notCubemapShader.use();
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, carpetSpecularMap);
 
-        glm::mat4 model         = glm::mat4(1.0f);
-        glm::mat4 view          = glm::lookAt(kamerica.Position, kamerica.Position+kamerica.Front, kamerica.Up);
-        model = glm::rotate(model, glm::radians(-55.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-//        view  = glm::translate(view, glm::vec3(0.0f, 0.0f, -1.5f));
-
-        projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-
-        notCubemapShader.setMat4("model", model);
-        notCubemapShader.setMat4("view", view);
-
+        // IT IS A DRAWING, OF A KEY (CARPET)
         glBindVertexArray(carpetVAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+
+// CUBE AS A REFERENCE POINT
+
+        model = glm::mat4(1.0f);
+        glm::vec3 translVektor (3.0f, 1.0f, 1.0f);
+        model = glm::translate(model, translVektor);
+        model = glm::scale(model, glm::vec3(0.5f));
+        notCubemapShader.setMat4("model", model);
+        notCubemapShader.setFloat("material.shininess", 3.0f);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, cubeTexture);
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, cubeSpecularMap);
+
+        glBindVertexArray(cubeVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
+// LIGHT SOURCE
+
+        lightSourceShader.use();
+        lightSourceShader.setMat4("projection", projection);
+        lightSourceShader.setMat4("view", view);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, lightPosition);
+        model = glm::scale(model, glm::vec3(0.2f)); // a smaller cube
+        lightSourceShader.setMat4("model", model);
+
+        glBindVertexArray(lightSourceVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
 
         {// don't forget to enable shader before setting uniforms
 //        notCubemapShader.use();
@@ -302,6 +460,7 @@ int main() {
 //            DrawImGui(programState);
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         }//IMGUI
+
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
@@ -309,6 +468,8 @@ int main() {
     }
 
     glDeleteVertexArrays(1, &carpetVAO);
+    glDeleteVertexArrays(1, &cubeVAO);
+    glDeleteBuffers(1, &cubeVBO);
     glDeleteBuffers(1, &carpetVBO);
     glDeleteBuffers(1, &carpetEBO);
     {//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -331,15 +492,14 @@ void processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    float cameraSpeed = deltaTime; //??????????
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        kamerica.ProcessKeyboard(FORWARD, deltaTime); // POMERA SE KAMERA U KOM GLEDAMO
+        kamerica.ProcessKeyboard(FORWARD, deltaTime/2.0); // POMERA SE KAMERA U KOM GLEDAMO
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        kamerica.ProcessKeyboard(BACKWARD, deltaTime);
+        kamerica.ProcessKeyboard(BACKWARD, deltaTime/2.0);
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        kamerica.ProcessKeyboard(LEFT, deltaTime);
+        kamerica.ProcessKeyboard(LEFT, deltaTime/2.0);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        kamerica.ProcessKeyboard(RIGHT, deltaTime);
+        kamerica.ProcessKeyboard(RIGHT, deltaTime/2.0);
     {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
@@ -352,6 +512,20 @@ void processInput(GLFWwindow *window) {
        /// programState->camera.ProcessKeyboard(RIGHT, deltaTime * 6);
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 } // IMGUI
+
+    if(glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+        moveLight(FORWARD);
+    if(glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        moveLight(BACKWARD);
+    if(glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+        moveLight(LEFT);
+    if(glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+        moveLight(RIGHT);
+
+    if(glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS)
+        moveLight(UP);
+    if(glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
+        moveLight(DOWN);
 }
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
@@ -363,20 +537,41 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
 // glfw: whenever the mouse moves, this callback is called
 // -------------------------------------------------------
 void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
-    if (firstMouse) {
-        lastX = xpos;
+    if (firstMouse)
+    {
+        lastX = xpos; // AKO JE OO PRVO POMERANJE MISEM, POSTAVLJAMO POZICIJU NA KOJOJ SMO PRETHODNO BILI NA OVU TRENUTNU
         lastY = ypos;
         firstMouse = false;
     }
 
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
-
+    float xoffset = xpos - lastX; // ZA KOLIKO SE POMERAMO
+    float yoffset = lastY - ypos; // ZA KOLIKO SE POMERAMO; reversed since y-coordinates go from bottom to top
     lastX = xpos;
     lastY = ypos;
 
-    if (programState->CameraMouseMovementUpdateEnabled)
-        programState->camera.ProcessMouseMovement(xoffset, yoffset);
+    float sensitivity = 0.1f; // KOLIKO BRZO SE POMERA KAMERA PRI POMERANJU MISA
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    kamerica.Yaw += xoffset; // IZRACUNAVAMO ONE UGLOVE
+    kamerica.Pitch += yoffset;
+
+    // make sure that when pitch is out of bounds, screen doesn't get flipped
+    // DA NAM NE BI KAMERA RADILA BACKFLIP. ONO KAD SE POMERAMO NPR. NA GORE I KAD STIGNEMO DO 90 STEPENI.
+    if (kamerica.Pitch > 89.0f)
+        kamerica.Pitch = 89.0f;
+    if (kamerica.Pitch < -89.0f)
+        kamerica.Pitch = -89.0f;
+
+    // RACUNAMO VEKTOR SMERA GLEDANJA
+    glm::vec3 front;
+    front.x = cos(glm::radians(kamerica.Yaw)) * cos(glm::radians(kamerica.Pitch));
+    front.y = sin(glm::radians(kamerica.Pitch));
+    front.z = sin(glm::radians(kamerica.Yaw)) * cos(glm::radians(kamerica.Pitch));
+    kamerica.Front = glm::normalize(front); // OVDE POSTAVLJAMO KONACNO SMER GLEDANJA KAMERE
+
+//    if (programState->CameraMouseMovementUpdateEnabled)
+//        programState->camera.ProcessMouseMovement(xoffset, yoffset);
 }
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called
 // ----------------------------------------------------------------------
@@ -411,8 +606,6 @@ unsigned int loadTexture(const char* texPath){
     return texObject;
 
 }
-
-
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
@@ -461,3 +654,27 @@ void DrawImGui(ProgramState *programState) {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
+void moveLight(Camera_Movement smer){
+    float velocity = 2.0f*deltaTime;
+    glm::vec3 yLock(1.0f, 0.0f, 1.0f);
+    glm::vec3 yMove(0.0f, 1.0f, 0.0f);
+
+    if (smer == FORWARD)
+        lightPosition += kamerica.Front * velocity * yLock;
+    if (smer == BACKWARD)
+        lightPosition -= kamerica.Front * velocity * yLock;
+    if (smer == LEFT)
+        lightPosition -= kamerica.Right * velocity * yLock;
+    if (smer == RIGHT)
+        lightPosition += kamerica.Right * velocity * yLock;
+
+    if (smer == UP)
+        lightPosition += velocity * yMove;
+    if (smer == DOWN)
+        lightPosition -= velocity * yMove;
+
+    if (lightPosition.y < 0.0f)
+        lightPosition.y = 0.0f;
+    else if (lightPosition.y > 3.0f)
+        lightPosition.y = 3.0f;
+}
