@@ -1,11 +1,22 @@
-# project_base
-Prazan projekat sa pratećim bibliotekama koje koristimo na času. 
+# Computer graphics project
 
-# Uputstvo
-1. `git clone https://github.com/matf-racunarska-grafika/project_base.git`
-2. CLion -> Open -> path/to/my/project_base
-3. Main se nalazi u src/main.cpp
-4. Cpp fajlovi idu u src folder
-5. Zaglavlja (h i hpp) fajlovi idu u include
-6. Šejderi idu u folder shaders. `Vertex shader` ima ekstenziju `.vs`, `fragment shader` ima ekstenziju `.fs`
-7. ALT+SHIFT+F10 -> project_base -> run
+Project's contents:
+
+* **Textures**:
+* **Lighting**:
+* **Shaders**:
+* **Face culling**:
+* **Model**:
+* **Functionalitites**:
+    * **WASD keys**: Change camera's position and direction
+    * **Arrow keys**: Move light source in one plane: forward, backward, left and right
+    * **I/K**: Move light source up and down
+    * **L**: Activate flashlight (spotlight)
+    * **P**: Activate or deactivate Blinn-Phong lighting model
+* **Skybox**:
+
+# Napomena:
+11.5.2023. kada je pisan ovaj README fajl, imao sam problema sa push-ovanjem na github 
+tako da ne znam da li ce se videti istorija commit-ova kada budem kacio projekat.
+U slucaju da se ne vidi, sva istorija je sacuvana u log fajlu koji se nalazi u skrivenom
+fajlu ".git". Eventualno u terminalu pokrenuti komandu "git log".
