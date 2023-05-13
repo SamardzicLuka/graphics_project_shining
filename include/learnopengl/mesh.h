@@ -26,7 +26,6 @@ struct Vertex {
 };
 
 
-
 struct Texture {
     unsigned int id;
     string type;
@@ -76,13 +75,13 @@ public:
             else if(name == "texture_height")
                 number = std::to_string(heightNr++); // transfer unsigned int to stream
 
+            name.append(number);
+            shader.setInt(name, i);
             // now set the sampler to the correct texture unit
-            glUniform1i(glGetUniformLocation(shader.ID, (glslIdentifierPrefix + name + number).c_str()), i);
+//            glUniform1i(glGetUniformLocation(shader.ID, (glslIdentifierPrefix + name + number).c_str()), i);
             // and finally bind the texture
             glBindTexture(GL_TEXTURE_2D, textures[i].id);
         }
-
-
 
         // draw mesh
         glBindVertexArray(VAO);

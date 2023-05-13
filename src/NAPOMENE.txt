@@ -1,1 +1,5 @@
-1) otkomentarisi sve sto ima veze sa imgui ako odlucis da radis sa njim
+1) skybox
+
+2) teksture modela
+
+3) tekstura kocke

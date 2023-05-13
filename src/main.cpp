@@ -1,9 +1,6 @@
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
-
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include<stb_image.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -15,6 +12,8 @@
 #include <learnopengl/model.h>
 
 #include <iostream>
+#include<cstdlib>
+#include<cmath>
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
@@ -22,13 +21,19 @@ void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 unsigned int loadTexture(const char* texPath);
+unsigned int loadCubemap(vector<std::string> sides);
+void moveLight(Camera_Movement smer);
 
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
+bool blinn = false;
+bool blinnActive = false;
+bool lampa = false;
+bool lampaActive = false;
 
 // camera
-
+Camera kamerica;
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -38,68 +43,6 @@ float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
 glm::vec3 lightPosition(1.5f, 1.6f, 2.8f);
-
-struct PointLight {
-    glm::vec3 position;
-    glm::vec3 ambient;
-    glm::vec3 diffuse;
-    glm::vec3 specular;
-
-    float constant;
-    float linear;
-    float quadratic;
-};
-
-Camera kamerica;
-
-struct ProgramState {
-    glm::vec3 clearColor = glm::vec3(0);
-    bool ImGuiEnabled = false;
-    Camera camera;
-    bool CameraMouseMovementUpdateEnabled = true;
-    glm::vec3 backpackPosition = glm::vec3(0.0f);
-    float backpackScale = 1.0f;
-    PointLight pointLight;
-    ProgramState()
-            : camera(glm::vec3(0.0f, 0.0f, 3.0f)) {}
-
-    void SaveToFile(std::string filename);
-
-    void LoadFromFile(std::string filename);
-};
-void ProgramState::SaveToFile(std::string filename) {
-    std::ofstream out(filename);
-    out << clearColor.r << '\n'
-        << clearColor.g << '\n'
-        << clearColor.b << '\n'
-        << ImGuiEnabled << '\n'
-        << camera.Position.x << '\n'
-        << camera.Position.y << '\n'
-        << camera.Position.z << '\n'
-        << camera.Front.x << '\n'
-        << camera.Front.y << '\n'
-        << camera.Front.z << '\n';
-}
-void ProgramState::LoadFromFile(std::string filename) {
-    std::ifstream in(filename);
-    if (in) {
-        in >> clearColor.r
-           >> clearColor.g
-           >> clearColor.b
-           >> ImGuiEnabled
-           >> camera.Position.x
-           >> camera.Position.y
-           >> camera.Position.z
-           >> camera.Front.x
-           >> camera.Front.y
-           >> camera.Front.z;
-    }
-}
-
-ProgramState *programState;
-
-void DrawImGui(ProgramState *programState);
-void moveLight(Camera_Movement smer);
 
 int main() {
     // glfw: initialize and configure
@@ -124,10 +67,8 @@ int main() {
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
-//    glfwSetScrollCallback(window, scroll_callback);
-//    glfwSetKeyCallback(window, key_callback);
-    // tell GLFW to capture our mouse
-//    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetScrollCallback(window, scroll_callback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);  // DA LI ZELIMO DA NAM SE KURSOR VIDI NA EKRANU
 
     // glad: load all OpenGL function pointers
     // ---------------------------------------
@@ -137,46 +78,26 @@ int main() {
     }
 
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
-    stbi_set_flip_vertically_on_load(true);
-
-    {
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//    programState = new ProgramState;
-//    programState->LoadFromFile("resources/program_state.txt");
-//    if (programState->ImGuiEnabled) {
-//        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-//    }
-//    // Init Imgui
-//    IMGUI_CHECKVERSION();
-//    ImGui::CreateContext();
-//    ImGuiIO &io = ImGui::GetIO();
-//    (void) io;
-//
-//
-//    ImGui_ImplGlfw_InitForOpenGL(window, true);
-//    ImGui_ImplOpenGL3_Init("#version 330 core");
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    }//IMGUI
+    // stbi_set_flip_vertically_on_load(true);
 
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST); // DA NE VIDIMO U ISTO VREME I SPOLJA I IZNUTRA
 
-    // build and compile shaders
-    // -------------------------
-    Shader notCubemapShader("resources/shaders/texture.vs", "resources/shaders/texture.fs");
-    Shader lightSourceShader("resources/shaders/source.vs", "resources/shaders/source.fs");
-
-    kamerica.Position = glm::vec3(0.0f, 0.0f,  3.0f); // POZICIJA KAMERE
+    kamerica.Position = glm::vec3(0.0f, 2.0f,  3.0f); // POZICIJA KAMERE
     kamerica.Front = glm::vec3(0.0f, 0.0f, -1.0f); // VEKTOR GLEDANJA UNAPRED
     kamerica.Up = glm::vec3(0.0f, 1.0f,  0.0f); // VEKTOR NA GORE
 
+    // build and compile shaders
+    // -------------------------
+    Shader carpetShader("resources/shaders/texture.vs", "resources/shaders/texture.fs");
+    Shader lightSourceShader("resources/shaders/source.vs", "resources/shaders/source.fs");
+    Shader skyboxShader("resources/shaders/source.vs", "resources/shaders/source.fs");
+
 // PRIPREMA
 
-    // POD
-
     // DEFINISANJE VERTEXA KOJE CEMO KORISTITI KAO TEPIH
-        float carpetVertices[] = {
+    float carpetVertices[] = {
            // positions                      // normals                        // texture coords
             0.5f,  0.5f,  0.0f, 0.0f, 0.0f, -1.0f,1.0f,  1.0f,  // top right
             0.5f, -0.5f,  0.0f, 0.0f, 0.0f, -1.0f,  1.0f,  0.0f,  // bottom right
@@ -184,36 +105,13 @@ int main() {
             -0.5f,  0.5f,  0.0f,  0.0f, 0.0f, -1.0f, 0.0f,  1.0f   // top left
         };
 
-        // KORISTIMO ONAJ EBO KOJI SMO RADILI NA DRUGOM(?) CASU KADA SE PONAVLJAJU VERTICES
-        unsigned int carpetIndices[] = {
+    // KORISTIMO ONAJ EBO KOJI SMO RADILI NA DRUGOM CASU KADA SE PONAVLJAJU VERTICES
+    unsigned int carpetIndices[] = {
             0, 1, 3,  // first Triangle
             1, 2, 3   // second Triangle
         };
 
-        // VAOs, VBOs AND EBOs
-        unsigned int carpetVAO, carpetVBO, carpetEBO;
-        glGenVertexArrays(1,&carpetVAO);
-        glGenBuffers(1, &carpetVBO);
-        glGenBuffers(1, &carpetEBO);
-
-        glBindVertexArray(carpetVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, carpetVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(carpetVertices), carpetVertices, GL_STATIC_DRAW);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, carpetEBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(carpetIndices), carpetIndices, GL_STATIC_DRAW);
-
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(1);
-
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-        glEnableVertexAttribArray(2);
-
-
-    // KOCKA
-
+    // KOCKE
     float vertices[] = {
             // positions          // normals           // texture coords
             -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
@@ -259,6 +157,75 @@ int main() {
             -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f
     };
 
+    // SKYBOX
+    float skyboxVertices[] = {
+            // positions
+            -1.0f,  1.0f, -1.0f,
+            -1.0f, -1.0f, -1.0f,
+            1.0f, -1.0f, -1.0f,
+            1.0f, -1.0f, -1.0f,
+            1.0f,  1.0f, -1.0f,
+            -1.0f,  1.0f, -1.0f,
+
+            -1.0f, -1.0f,  1.0f,
+            -1.0f, -1.0f, -1.0f,
+            -1.0f,  1.0f, -1.0f,
+            -1.0f,  1.0f, -1.0f,
+            -1.0f,  1.0f,  1.0f,
+            -1.0f, -1.0f,  1.0f,
+
+            1.0f, -1.0f, -1.0f,
+            1.0f, -1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f, -1.0f,
+            1.0f, -1.0f, -1.0f,
+
+            -1.0f, -1.0f,  1.0f,
+            -1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,
+            1.0f, -1.0f,  1.0f,
+            -1.0f, -1.0f,  1.0f,
+
+            -1.0f,  1.0f, -1.0f,
+            1.0f,  1.0f, -1.0f,
+            1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,
+            -1.0f,  1.0f,  1.0f,
+            -1.0f,  1.0f, -1.0f,
+
+            -1.0f, -1.0f, -1.0f,
+            -1.0f, -1.0f,  1.0f,
+            1.0f, -1.0f, -1.0f,
+            1.0f, -1.0f, -1.0f,
+            -1.0f, -1.0f,  1.0f,
+            1.0f, -1.0f,  1.0f
+    };
+
+    // CARPET SETUP
+    unsigned int carpetVAO, carpetVBO, carpetEBO;
+    glGenVertexArrays(1,&carpetVAO);
+    glGenBuffers(1, &carpetVBO);
+    glGenBuffers(1, &carpetEBO);
+
+    glBindVertexArray(carpetVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, carpetVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(carpetVertices), carpetVertices, GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, carpetEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(carpetIndices), carpetIndices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+
+    // CUBE SETUP
     unsigned int cubeVBO, cubeVAO;
     glGenVertexArrays(1, &cubeVAO);
     glGenBuffers(1, &cubeVBO);
@@ -274,7 +241,7 @@ int main() {
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
 
-    // IZVOR SVETLOSTI
+    // SOURCE SETUP
 
     unsigned int lightSourceVAO;
     glGenVertexArrays(1, &lightSourceVAO);
@@ -285,44 +252,57 @@ int main() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
+    // SKYBOX SETUP
+    unsigned int skyboxVAO, skyboxVBO;
+    glGenVertexArrays(1, &skyboxVAO);
+    glGenBuffers(1, &skyboxVBO);
+
+    glBindVertexArray(skyboxVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+    glEnableVertexAttribArray(0);
+
 // UCITAVANJE TEXTURA
+
+    // KOCKA
+    unsigned int cubeTexture = loadTexture(FileSystem::getPath("resources/textures/stone.jpg").c_str());
+    unsigned int cubeSpecularMap = loadTexture(FileSystem::getPath("resources/textures/specular_cube.jpg").c_str());
 
     // POD
     unsigned int carpetTexture = loadTexture(FileSystem::getPath("resources/textures/carpet.jpg").c_str());
     unsigned int carpetSpecularMap = loadTexture(FileSystem::getPath("resources/textures/specular_carpet.jpg").c_str());
 
-    // KOCKA
+    // SKKYBOX
+    vector<std::string> faces{
+            FileSystem::getPath("resources/textures/skybox/right.jpg"),
+            FileSystem::getPath("resources/textures/skybox/left.jpg"),
+            FileSystem::getPath("resources/textures/skybox/top.jpg"),
+            FileSystem::getPath("resources/textures/skybox/bottom.jpg"),
+            FileSystem::getPath("resources/textures/skybox/front.jpg"),
+            FileSystem::getPath("resources/textures/skybox/back.jpg")
+            };
+    unsigned int cubemapTexture = loadCubemap(faces);
+    skyboxShader.use();
+    skyboxShader.setInt("skybox", 0);
 
-    unsigned int cubeTexture = loadTexture(FileSystem::getPath("resources/textures/awesomeface.png").c_str());
-    unsigned int cubeSpecularMap = loadTexture(FileSystem::getPath("resources/textures/specular_cube.jpg").c_str());
-
-    {
-        // load models
-        // -----------
-        {//    Model ourModel("resources/objects/medieval book/TEST2.fbx");
-//    ourModel.SetShaderTextureNamePrefix("material.");
-
-//    PointLight& pointLight = programState->pointLight;
-//    pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
-//    pointLight.ambient = glm::vec3(1, 1, 1);
-//    pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
-//    pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
-//
-//    pointLight.constant = 1.0f;
-//    pointLight.linear = 0.09f;
-//    pointLight.quadratic = 0.032f;
-        } //LOADING MODELS- JOS NISAM STIGAO DO OVDE
-    } // MODELI
-
-    notCubemapShader.use();
-    notCubemapShader.setInt("material.diffuse", 0);
-    notCubemapShader.setInt("material.specular", 1);
-    notCubemapShader.setFloat("material.shininess", 1.0f);
+    // MODEL
+    unsigned int modelSpec = loadTexture(FileSystem::getPath("resources/objects/ring/Ring_Light.fw.png").c_str());
+    carpetShader.use();
+    carpetShader.setInt("material.diffuse", 0);
+    carpetShader.setInt("material.specular", 1);
+    carpetShader.setFloat("material.shininess", 1.0f);
 
 
-    // PRAVIMO MATRICU PROJEKCIJE
+// PRAVIMO MATRICU PROJEKCIJE
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-    notCubemapShader.setMat4("projection", projection);
+    carpetShader.setMat4("projection", projection);
+
+    // UCITAVANJE MODELA
+
+    Model hotel(FileSystem::getPath("resources/objects/backpack/backpack.obj").c_str());
+    hotel.SetShaderTextureNamePrefix("material.");
 
     while (!glfwWindowShouldClose(window)){
         // per-frame time logic
@@ -335,55 +315,54 @@ int main() {
         // -----
         processInput(window);
 
-        {///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//        glClearColor(programState->clearColor.r, programState->clearColor.g, programState->clearColor.b, 1.0f);
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        }//IMGUI
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-
         // INTITALIZE OUR SHADER
-        notCubemapShader.use();
-        notCubemapShader.setVec3("viewPos", kamerica.Position);
+        carpetShader.use();
+        carpetShader.setVec3("viewPos", kamerica.Position);
+        carpetShader.setFloat("material.shininess", 16.0f);
+        carpetShader.setBool("blinn", blinn);
+        carpetShader.setInt("lampa", lampa);
 
-        notCubemapShader.setVec3("dirLight.direction", 1.0f, -0.5f, 0.0f);
-        notCubemapShader.setVec3("dirLight.ambient", 0.01f, 0.01f, 0.01f);
-        notCubemapShader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
-        notCubemapShader.setVec3("dirLight.specular", 1.0f, 1.0f, 1.0f);
+        carpetShader.setVec3("dirLight.direction", 1.0f, -0.5f, 0.0f);
+        carpetShader.setVec3("dirLight.ambient", 0.01f, 0.01f, 0.01f);
+        carpetShader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
+        carpetShader.setVec3("dirLight.specular", 1.0f, 1.0f, 1.0f);
 
-        notCubemapShader.setVec3("pointLight.position", lightPosition);
-        notCubemapShader.setVec3("pointLight.ambient", 0.01f, 0.01f, 0.01f);
-        notCubemapShader.setVec3("pointLight.diffuse", 1.5f, 0.8f, 0.8f);
-        notCubemapShader.setVec3("pointLight.specular", 1.0f, 1.0f, 1.0f);
-        notCubemapShader.setFloat("pointLight.constant", 1.0f);
-        notCubemapShader.setFloat("pointLight.linear", 0.09f);
-        notCubemapShader.setFloat("pointLight.quadratic", 0.032f);
+        carpetShader.setVec3("pointLight.position", lightPosition);
+        carpetShader.setVec3("pointLight.ambient", 0.01f, 0.01f, 0.01f);
+        carpetShader.setVec3("pointLight.diffuse", 1.5f, 0.8f, 0.8f);
+        carpetShader.setVec3("pointLight.specular", 1.0f, 1.0f, 1.0f);
+        carpetShader.setFloat("pointLight.constant", 1.0f);
+        carpetShader.setFloat("pointLight.linear", 0.09f);
+        carpetShader.setFloat("pointLight.quadratic", 0.032f);
 
-        notCubemapShader.setVec3("spotLight.position", kamerica.Position);
-        notCubemapShader.setVec3("spotLight.direction", kamerica.Front);
-        notCubemapShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
-        notCubemapShader.setVec3("spotLight.diffuse", 0.7f, 0.7f, 0.7f);
-        notCubemapShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
-        notCubemapShader.setFloat("spotLight.constant", 1.0f);
-        notCubemapShader.setFloat("spotLight.linear", 0.05);
-        notCubemapShader.setFloat("spotLight.quadratic", 0.012);
-        notCubemapShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(10.5f)));
-        notCubemapShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(13.0f)));
+        carpetShader.setVec3("spotLight.position", kamerica.Position);
+        carpetShader.setVec3("spotLight.direction", kamerica.Front);
+        carpetShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
+        carpetShader.setVec3("spotLight.diffuse", 0.7f, 0.7f, 0.7f);
+        carpetShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
+        carpetShader.setFloat("spotLight.constant", 1.0f);
+        carpetShader.setFloat("spotLight.linear", 0.05);
+        carpetShader.setFloat("spotLight.quadratic", 0.012);
+        carpetShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(10.5f)));
+        carpetShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(13.0f)));
 
         glm::mat4 view          = glm::lookAt(kamerica.Position, kamerica.Position+kamerica.Front, kamerica.Up);
-        notCubemapShader.setMat4("view", view);
-
+        carpetShader.setMat4("view", view);
 
 // WORK ON OUR FLOOR
 // MODEL AND VIEW WE WILL USE TO RENDER FLOOR
-        glm::mat4  model(1.0);
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -0.51f, 0.0f));
+
+        carpetShader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
+        carpetShader.setFloat("material.shininess", 256.0f);
+
+        glm::mat4 model(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
         model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
         model = glm::scale(model, glm::vec3(10.0f));
-        notCubemapShader.setMat4("model", model);
-        notCubemapShader.setInt("texture1", 0);
+        carpetShader.setMat4("model", model);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, carpetTexture);
@@ -393,8 +372,16 @@ int main() {
 
         // IT IS A DRAWING, OF A KEY (CARPET)
         glBindVertexArray(carpetVAO);
+        glEnable(GL_CULL_FACE);     // floor won't be visible if looked from bellow
+        glCullFace(GL_BACK);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glDisable(GL_CULL_FACE);
 
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, 0);
 
 // CUBE AS A REFERENCE POINT
 
@@ -402,8 +389,9 @@ int main() {
         glm::vec3 translVektor (3.0f, 1.0f, 1.0f);
         model = glm::translate(model, translVektor);
         model = glm::scale(model, glm::vec3(0.5f));
-        notCubemapShader.setMat4("model", model);
-        notCubemapShader.setFloat("material.shininess", 3.0f);
+        carpetShader.use();
+        carpetShader.setMat4("model", model);
+        carpetShader.setFloat("material.shininess", 3.0f);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, cubeTexture);
@@ -427,39 +415,32 @@ int main() {
         glBindVertexArray(lightSourceVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
+// CRTAMO MODEL
+        glm::mat4 modelHotela = glm::mat4(1.0f);
+        modelHotela = glm::scale(modelHotela, glm::vec3(0.3f));
+        modelHotela = glm::translate(modelHotela, glm::vec3(0.0f, 0.0f, 1.0f));
+        carpetShader.setMat4("model", modelHotela);
 
-        {// don't forget to enable shader before setting uniforms
-//        notCubemapShader.use();
-//        pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
-//        notCubemapShader.setVec3("pointLight.position", pointLight.position);
-//        notCubemapShader.setVec3("pointLight.ambient", pointLight.ambient);
-//        notCubemapShader.setVec3("pointLight.diffuse", pointLight.diffuse);
-//        notCubemapShader.setVec3("pointLight.specular", pointLight.specular);
-//        notCubemapShader.setFloat("pointLight.constant", pointLight.constant);
-//        notCubemapShader.setFloat("pointLight.linear", pointLight.linear);
-//        notCubemapShader.setFloat("pointLight.quadratic", pointLight.quadratic);
-//        notCubemapShader.setVec3("viewPosition", programState->camera.Position);
-//        notCubemapShader.setFloat("material.shininess", 32.0f);
-//        // view/projection transformations
-//        glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
-//                                                (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
-//        glm::mat4 view = programState->camera.GetViewMatrix();
-//        notCubemapShader.setMat4("projection", projection);
-//        notCubemapShader.setMat4("view", view);
-//
-//        // render the loaded model
-//        glm::mat4 model = glm::mat4(1.0f);
-//        model = glm::translate(model,
-//                               programState->backpackPosition); // translate it down so it's at the center of the scene
-//        model = glm::scale(model, glm::vec3(programState->backpackScale));    // it's a bit too big for our scene, so scale it down
-//        notCubemapShader.setMat4("model", model);
-//        ourModel.Draw(notCubemapShader);
-        } // MODELI SEJDERI
-        {//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//        if (programState->ImGuiEnabled)
-//            DrawImGui(programState);
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        }//IMGUI
+//        glActiveTexture(GL_TEXTURE1);
+//        glBindTexture(GL_TEXTURE_2D, modelSpec);
+        hotel.Draw(carpetShader);
+
+//SKYBOX
+        // skybox shader setup
+        // -----------
+        glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+        skyboxShader.use();
+        view = glm::mat4(glm::mat3(kamerica.GetViewMatrix())); // remove translation from the view matrix
+        skyboxShader.setMat4("view", view);
+        skyboxShader.setMat4("projection", projection);
+        // render skybox cube
+
+        glBindVertexArray(skyboxVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+        glDepthFunc(GL_LESS); // set depth function back to default
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -469,17 +450,13 @@ int main() {
 
     glDeleteVertexArrays(1, &carpetVAO);
     glDeleteVertexArrays(1, &cubeVAO);
+    glDeleteVertexArrays(1, &skyboxVAO);
+    glDeleteVertexArrays(1, &lightSourceVAO);
     glDeleteBuffers(1, &cubeVBO);
     glDeleteBuffers(1, &carpetVBO);
     glDeleteBuffers(1, &carpetEBO);
-    {//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//    programState->SaveToFile("resources/program_state.txt");
-//    delete programState;
-//    ImGui_ImplOpenGL3_Shutdown();
-//    ImGui_ImplGlfw_Shutdown();
-//    ImGui::DestroyContext();
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    }   //IMGUI
+    glDeleteBuffers(1, &skyboxVBO);
+
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
     glfwTerminate();
@@ -487,7 +464,7 @@ int main() {
 }
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-// ---------------------------------------------------------------------------------------------------------
+
 void processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
@@ -500,18 +477,6 @@ void processInput(GLFWwindow *window) {
         kamerica.ProcessKeyboard(LEFT, deltaTime/2.0);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         kamerica.ProcessKeyboard(RIGHT, deltaTime/2.0);
-    {
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-      //  programState->camera.ProcessKeyboard(FORWARD, deltaTime * 6);
-    //if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-      //  programState->camera.ProcessKeyboard(BACKWARD, deltaTime * 6);
-    ///if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-       /// programState->camera.ProcessKeyboard(LEFT, deltaTime * 6);
-    ///if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-       /// programState->camera.ProcessKeyboard(RIGHT, deltaTime * 6);
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-} // IMGUI
 
     if(glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
         moveLight(FORWARD);
@@ -526,16 +491,41 @@ void processInput(GLFWwindow *window) {
         moveLight(UP);
     if(glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
         moveLight(DOWN);
+
+    // BLINN-PHONG
+    if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS && !blinnActive)
+    {
+        blinn = !blinn;
+        blinnActive = true;
+        if (blinn)
+            cout << "Blinn-Phong" << endl;
+        else
+            cout << "Phong" << endl;
+    }
+    if (glfwGetKey(window, GLFW_KEY_P) == GLFW_RELEASE)
+    {
+        blinnActive = false;
+    }
+    // LAMPA
+    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS && !lampaActive)
+    {
+        lampa = !lampa;
+        lampaActive = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_RELEASE)
+    {
+        lampaActive = false;
+    }
 }
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
-// ---------------------------------------------------------------------------------------------
+
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
     // make sure the viewport matches the new window dimensions; note that width and
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
 }
 // glfw: whenever the mouse moves, this callback is called
-// -------------------------------------------------------
+
 void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
     if (firstMouse)
     {
@@ -570,13 +560,6 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
     front.z = sin(glm::radians(kamerica.Yaw)) * cos(glm::radians(kamerica.Pitch));
     kamerica.Front = glm::normalize(front); // OVDE POSTAVLJAMO KONACNO SMER GLEDANJA KAMERE
 
-//    if (programState->CameraMouseMovementUpdateEnabled)
-//        programState->camera.ProcessMouseMovement(xoffset, yoffset);
-}
-// glfw: whenever the mouse scroll wheel scrolls, this callback is called
-// ----------------------------------------------------------------------
-void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
-    programState->camera.ProcessMouseScroll(yoffset);
 }
 
 unsigned int loadTexture(const char* texPath){
@@ -590,7 +573,7 @@ unsigned int loadTexture(const char* texPath){
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
 
     int width, height, noChannels;
-    unsigned char *data = stbi_load(FileSystem::getPath("resources/textures/carpet.jpg").c_str(), &width, &height, &noChannels, 0);
+    unsigned char *data = stbi_load(texPath, &width, &height, &noChannels, 0);
 
     if(data){
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
@@ -605,53 +588,6 @@ unsigned int loadTexture(const char* texPath){
     stbi_image_free(data);
     return texObject;
 
-}
-
-void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
-        programState->ImGuiEnabled = !programState->ImGuiEnabled;
-        if (programState->ImGuiEnabled) {
-            programState->CameraMouseMovementUpdateEnabled = false;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        } else {
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        }
-    }
-}
-
-void DrawImGui(ProgramState *programState) {
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-
-
-    {
-        static float f = 0.0f;
-        ImGui::Begin("Hello window");
-        ImGui::Text("Hello text");
-        ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
-        ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
-        ImGui::DragFloat3("Backpack position", (float*)&programState->backpackPosition);
-        ImGui::DragFloat("Backpack scale", &programState->backpackScale, 0.05, 0.1, 4.0);
-
-        ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
-        ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
-        ImGui::DragFloat("pointLight.quadratic", &programState->pointLight.quadratic, 0.05, 0.0, 1.0);
-        ImGui::End();
-    }
-
-    {
-        ImGui::Begin("Camera info");
-        const Camera& c = programState->camera;
-        ImGui::Text("Camera position: (%f, %f, %f)", c.Position.x, c.Position.y, c.Position.z);
-        ImGui::Text("(Yaw, Pitch): (%f, %f)", c.Yaw, c.Pitch);
-        ImGui::Text("Camera front: (%f, %f, %f)", c.Front.x, c.Front.y, c.Front.z);
-        ImGui::Checkbox("Camera mouse update", &programState->CameraMouseMovementUpdateEnabled);
-        ImGui::End();
-    }
-
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 void moveLight(Camera_Movement smer){
@@ -677,4 +613,35 @@ void moveLight(Camera_Movement smer){
         lightPosition.y = 0.0f;
     else if (lightPosition.y > 3.0f)
         lightPosition.y = 3.0f;
+}
+
+unsigned int loadCubemap(vector<std::string> sides){
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+    int width, height, nrChannels;
+    for (unsigned int i = 0; i < sides.size(); i++)
+    {
+        unsigned char *data = stbi_load(sides[i].c_str(), &width, &height, &nrChannels, 0);
+        if (data)
+        {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+            stbi_image_free(data);
+        }
+        else
+        {
+            std::cout << "Cubemap texture failed to load at path: " << sides[i] << std::endl;
+            stbi_image_free(data);
+        }
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset){
+    kamerica.ProcessMouseScroll(yoffset);
 }
