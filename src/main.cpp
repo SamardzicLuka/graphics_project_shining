@@ -92,7 +92,7 @@ int main() {
     // -------------------------
     Shader carpetShader("resources/shaders/texture.vs", "resources/shaders/texture.fs");
     Shader lightSourceShader("resources/shaders/source.vs", "resources/shaders/source.fs");
-    Shader skyboxShader("resources/shaders/source.vs", "resources/shaders/source.fs");
+    Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
 
 // PRIPREMA
 
@@ -288,7 +288,7 @@ int main() {
     skyboxShader.setInt("skybox", 0);
 
     // MODEL
-    unsigned int modelSpec = loadTexture(FileSystem::getPath("resources/objects/ring/Ring_Light.fw.png").c_str());
+//    unsigned int modelSpec = loadTexture(FileSystem::getPath("resources/objects/ring/Ring_Light.fw.png").c_str());
     carpetShader.use();
     carpetShader.setInt("material.diffuse", 0);
     carpetShader.setInt("material.specular", 1);
@@ -421,7 +421,7 @@ int main() {
         modelHotela = glm::translate(modelHotela, glm::vec3(0.0f, 0.0f, 1.0f));
         carpetShader.setMat4("model", modelHotela);
 
-//        glActiveTexture(GL_TEXTURE1);
+        glActiveTexture(GL_TEXTURE1);
 //        glBindTexture(GL_TEXTURE_2D, modelSpec);
         hotel.Draw(carpetShader);
 
@@ -567,10 +567,6 @@ unsigned int loadTexture(const char* texPath){
     glGenTextures(1, &texObject);
     glBindTexture(GL_TEXTURE_2D,texObject);
 
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
 
     int width, height, noChannels;
     unsigned char *data = stbi_load(texPath, &width, &height, &noChannels, 0);
@@ -578,16 +574,30 @@ unsigned int loadTexture(const char* texPath){
     if(data){
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
-        // !!!!!!!!!!!!!!!!!!!!!!!! TASK_NO_1
-        // OVDE CE NESTO MORATI DA SE DODA. POGLEDAJ KNJIGU POSLE I POGLEDAJ U KODOVIMA KAD SE PRVI PUT
-        // POJAVLJUJE ONAJ ENUM. JA MISLIM DA JE TO ZBOG MODELA
+
+        GLenum format = GL_RED;
+        if (noChannels == 1)
+            format = GL_RED;
+        else if (noChannels == 3)
+            format = GL_RGB;
+        else if (noChannels == 4)
+            format = GL_RGBA;
+
+        glBindTexture(GL_TEXTURE_2D, texObject);
+        glTexImage2D(GL_TEXTURE_2D, 0, (GLint)format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+        stbi_image_free(data);
     }
     else{
-        std::cout<<"Neuspesno ucitavanje tekstura\n";
+        std::cout<<"Neuspesno ucitavanje tekstura\n"<<texPath;
+        stbi_image_free(data);
     }
-    stbi_image_free(data);
     return texObject;
-
 }
 
 void moveLight(Camera_Movement smer){
@@ -640,6 +650,8 @@ unsigned int loadCubemap(vector<std::string> sides){
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    return textureID;
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset){
