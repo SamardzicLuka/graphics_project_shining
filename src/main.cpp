@@ -83,6 +83,8 @@ int main() {
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST); // DA NE VIDIMO U ISTO VREME I SPOLJA I IZNUTRA
+    glEnable(GL_BLEND); //OMOGUCAVAMO BLENDING
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);//PODESAVAMO ONU FORMULU
 
     kamerica.Position = glm::vec3(0.0f, 2.0f,  3.0f); // POZICIJA KAMERE
     kamerica.Front = glm::vec3(0.0f, 0.0f, -1.0f); // VEKTOR GLEDANJA UNAPRED
@@ -288,10 +290,10 @@ int main() {
     skyboxShader.setInt("skybox", 0);
 
     // MODEL
-//    unsigned int modelSpec = loadTexture(FileSystem::getPath("resources/objects/ring/Ring_Light.fw.png").c_str());
+    unsigned int modelSpec = loadTexture(FileSystem::getPath("resources/objects/axe/basecolor.png").c_str());
     carpetShader.use();
-    carpetShader.setInt("material.diffuse", 0);
-    carpetShader.setInt("material.specular", 1);
+    carpetShader.setInt("material.texture_diffuse1", 0);
+    carpetShader.setInt("material.texture_specular1", 1);
     carpetShader.setFloat("material.shininess", 1.0f);
 
 
@@ -301,8 +303,8 @@ int main() {
 
     // UCITAVANJE MODELA
 
-    Model hotel(FileSystem::getPath("resources/objects/backpack/backpack.obj").c_str());
-    hotel.SetShaderTextureNamePrefix("material.");
+    Model axe(FileSystem::getPath("resources/objects/axe/axeLP.fbx").c_str());
+    axe.SetShaderTextureNamePrefix("material.");
 
     while (!glfwWindowShouldClose(window)){
         // per-frame time logic
@@ -416,14 +418,16 @@ int main() {
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
 // CRTAMO MODEL
-        glm::mat4 modelHotela = glm::mat4(1.0f);
-        modelHotela = glm::scale(modelHotela, glm::vec3(0.3f));
-        modelHotela = glm::translate(modelHotela, glm::vec3(0.0f, 0.0f, 1.0f));
-        carpetShader.setMat4("model", modelHotela);
+        carpetShader.use();
+        glm::mat4 modelSikire = glm::mat4(1.0f);
+        modelSikire = glm::scale(modelSikire, glm::vec3(0.2f));
+        modelSikire = glm::rotate(modelSikire, (float)glfwGetTime(), glm::vec3(1.0f));
+        modelSikire = glm::translate(modelSikire, glm::vec3(0.0f, 2.0f, 1.0f));
+        carpetShader.setMat4("model", modelSikire);
 
-        glActiveTexture(GL_TEXTURE1);
-//        glBindTexture(GL_TEXTURE_2D, modelSpec);
-        hotel.Draw(carpetShader);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, modelSpec);
+        axe.Draw(carpetShader);
 
 //SKYBOX
         // skybox shader setup
@@ -587,8 +591,8 @@ unsigned int loadTexture(const char* texPath){
         glTexImage2D(GL_TEXTURE_2D, 0, (GLint)format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
 
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,format == GL_RGBA ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,format == GL_RGBA ? GL_CLAMP_TO_EDGE : GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
         stbi_image_free(data);
