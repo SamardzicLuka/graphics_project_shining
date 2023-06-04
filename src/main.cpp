@@ -95,6 +95,7 @@ int main() {
     Shader carpetShader("resources/shaders/texture.vs", "resources/shaders/texture.fs");
     Shader lightSourceShader("resources/shaders/source.vs", "resources/shaders/source.fs");
     Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
+    Shader windowShader("resources/shaders/blending.vs", "resources/shaders/blending.fs");
 
 // PRIPREMA
 
@@ -205,6 +206,17 @@ int main() {
             1.0f, -1.0f,  1.0f
     };
 
+    float transparentVertices[] = {
+            // positions         // texture Coords (swapped y coordinates because texture is flipped upside down)
+            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+            0.0f, -0.5f,  0.0f,  0.0f,  1.0f,
+            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+
+            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+            1.0f,  0.5f,  0.0f,  1.0f,  0.0f
+    };
+
     // CARPET SETUP
     unsigned int carpetVAO, carpetVBO, carpetEBO;
     glGenVertexArrays(1,&carpetVAO);
@@ -266,11 +278,26 @@ int main() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
 
+    // TRANSPARENT SETUP
+
+    unsigned int transparentVAO, transparentVBO;
+    glGenVertexArrays(1, &transparentVAO);
+    glGenBuffers(1, &transparentVBO);
+    glBindVertexArray(transparentVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, transparentVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(transparentVertices), transparentVertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glBindVertexArray(0);
+
 // UCITAVANJE TEXTURA
 
     // KOCKA
     unsigned int cubeTexture = loadTexture(FileSystem::getPath("resources/textures/stone.jpg").c_str());
     unsigned int cubeSpecularMap = loadTexture(FileSystem::getPath("resources/textures/specular_cube.jpg").c_str());
+    unsigned int transparentTexture = loadTexture(FileSystem::getPath("resources/textures/cave.png").c_str());
 
     // POD
     unsigned int carpetTexture = loadTexture(FileSystem::getPath("resources/textures/carpet.jpg").c_str());
@@ -306,6 +333,14 @@ int main() {
     Model axe(FileSystem::getPath("resources/objects/axe/axeLP.fbx").c_str());
     axe.SetShaderTextureNamePrefix("material.");
 
+    // LOKACIJE PROZORA
+    vector<glm::vec3> windows{
+            glm::vec3(-1.5f, 0.0f, -0.48f),
+            glm::vec3(1.5f, 0.0f, 0.51f),
+            glm::vec3(0.0f, 0.0f, 0.7f),
+    };
+
+
     while (!glfwWindowShouldClose(window)){
         // per-frame time logic
         // --------------------
@@ -316,6 +351,13 @@ int main() {
         // input
         // -----
         processInput(window);
+
+        std::sort(windows.begin(), windows.end(),
+                  [kamericaPosition = kamerica.Position](const glm::vec3& a, const glm::vec3& b) {
+                      float d1 = glm::distance(a, kamericaPosition);
+                      float d2 = glm::distance(b, kamericaPosition);
+                      return d1 > d2;
+                  });
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -429,6 +471,7 @@ int main() {
         glBindTexture(GL_TEXTURE_2D, modelSpec);
         axe.Draw(carpetShader);
 
+
 //SKYBOX
         // skybox shader setup
         // -----------
@@ -437,14 +480,44 @@ int main() {
         view = glm::mat4(glm::mat3(kamerica.GetViewMatrix())); // remove translation from the view matrix
         skyboxShader.setMat4("view", view);
         skyboxShader.setMat4("projection", projection);
-        // render skybox cube
 
+        // render skybox cube
         glBindVertexArray(skyboxVAO);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
         glDepthFunc(GL_LESS); // set depth function back to default
+
+        // PROZORI
+        windowShader.use();
+        windowShader.setInt("texture1", 0);
+        view          = glm::lookAt(kamerica.Position, kamerica.Position+kamerica.Front, kamerica.Up);
+        windowShader.setMat4("view", view);
+        projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        windowShader.setMat4("projection", projection);
+
+// Bind the transparent texture
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, transparentTexture);
+
+// Set up vertex array object
+        glBindVertexArray(transparentVAO);
+
+        for (const glm::vec3& w : windows)
+        {
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, w);
+            model = glm::translate(model,glm::vec3(0.0f,1.0f,0.0f));
+            model = glm::scale(model,glm::vec3(0.5f));
+            windowShader.setMat4("model", model);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+        }
+
+// Clean up
+        glBindVertexArray(0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -456,10 +529,12 @@ int main() {
     glDeleteVertexArrays(1, &cubeVAO);
     glDeleteVertexArrays(1, &skyboxVAO);
     glDeleteVertexArrays(1, &lightSourceVAO);
+    glDeleteVertexArrays(1,&transparentVAO);
     glDeleteBuffers(1, &cubeVBO);
     glDeleteBuffers(1, &carpetVBO);
     glDeleteBuffers(1, &carpetEBO);
     glDeleteBuffers(1, &skyboxVBO);
+    glDeleteBuffers(1,&transparentVBO);
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------

@@ -1,6 +1,0 @@
-1. Tekstura kocke
-
-2. Tekstura modela
-
-3. skybox
-
