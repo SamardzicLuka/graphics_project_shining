@@ -10,4 +10,4 @@
 
 Oblast iz A: skybox
 
-
+https://www.youtube.com/watch?v=LvdRSZLQidY

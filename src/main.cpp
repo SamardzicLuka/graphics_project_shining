@@ -65,10 +65,11 @@ int main() {
         return -1;
     }
     glfwMakeContextCurrent(window);
+
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);  // DA LI ZELIMO DA NAM SE KURSOR VIDI NA EKRANU
+//    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);  // DA LI ZELIMO DA NAM SE KURSOR VIDI NA EKRANU
 
     // glad: load all OpenGL function pointers
     // ---------------------------------------
@@ -303,7 +304,7 @@ int main() {
     unsigned int carpetTexture = loadTexture(FileSystem::getPath("resources/textures/carpet.jpg").c_str());
     unsigned int carpetSpecularMap = loadTexture(FileSystem::getPath("resources/textures/specular_carpet.jpg").c_str());
 
-    // SKKYBOX
+    // SKYBOX
     vector<std::string> faces{
             FileSystem::getPath("resources/textures/skybox2/right.jpg"),
             FileSystem::getPath("resources/textures/skybox2/left.jpg"),
@@ -323,15 +324,14 @@ int main() {
     carpetShader.setInt("material.texture_specular1", 1);
     carpetShader.setFloat("material.shininess", 1.0f);
 
-
-// PRAVIMO MATRICU PROJEKCIJE
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-    carpetShader.setMat4("projection", projection);
-
     // UCITAVANJE MODELA
 
     Model axe(FileSystem::getPath("resources/objects/axe/axeLP.fbx").c_str());
     axe.SetShaderTextureNamePrefix("material.");
+
+// PRAVIMO MATRICU PROJEKCIJE
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+    carpetShader.setMat4("projection", projection);
 
     // LOKACIJE PROZORA
     vector<glm::vec3> windows{
