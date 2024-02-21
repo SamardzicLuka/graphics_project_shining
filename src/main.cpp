@@ -20,8 +20,8 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
-unsigned int loadTexture(const char* texPath);
-unsigned int loadCubemap(vector<std::string> sides);
+auto loadTexture(const char* texPath) -> unsigned int;
+auto loadCubemap(vector<std::string> sides) -> unsigned int;
 void moveLight(Camera_Movement smer);
 
 // settings
@@ -44,7 +44,7 @@ float lastFrame = 0.0f;
 
 glm::vec3 lightPosition(1.5f, 1.6f, 2.8f);
 
-int main() {
+auto main() -> int {
     // glfw: initialize and configure
     // ------------------------------
     glfwInit();
@@ -58,8 +58,8 @@ int main() {
 
     // glfw window creation
     // --------------------
-    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
-    if (window == NULL) {
+    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", nullptr, nullptr);
+    if (window == nullptr) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return -1;
@@ -230,7 +230,7 @@ int main() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, carpetEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(carpetIndices), carpetIndices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)nullptr);
     glEnableVertexAttribArray(0);
 
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
@@ -264,7 +264,7 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)nullptr);
     glEnableVertexAttribArray(0);
 
     // SKYBOX SETUP
@@ -287,7 +287,7 @@ int main() {
     glBindVertexArray(transparentVAO);
     glBindBuffer(GL_ARRAY_BUFFER, transparentVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(transparentVertices), transparentVertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)nullptr);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
@@ -418,7 +418,7 @@ int main() {
         glBindVertexArray(carpetVAO);
         glEnable(GL_CULL_FACE);     // floor won't be visible if looked from bellow
         glCullFace(GL_BACK);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
         glDisable(GL_CULL_FACE);
 
         glActiveTexture(GL_TEXTURE0);
@@ -641,7 +641,7 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
 
 }
 
-unsigned int loadTexture(const char* texPath){
+auto loadTexture(const char* texPath) -> unsigned int{
     unsigned int texObject;
     glGenTextures(1, &texObject);
     glBindTexture(GL_TEXTURE_2D,texObject);
@@ -704,7 +704,7 @@ void moveLight(Camera_Movement smer){
         lightPosition.y = 3.0f;
 }
 
-unsigned int loadCubemap(vector<std::string> sides){
+auto loadCubemap(vector<std::string> sides) -> unsigned int{
     unsigned int textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
